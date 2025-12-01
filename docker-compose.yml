@@ -1,0 +1,12 @@
+version: '3.9'
+services:
+  backend:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - BREEZ_API_KEY=${BREEZ_API_KEY}
+      - DATABASE_URL=file:/data/sabi.db
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
