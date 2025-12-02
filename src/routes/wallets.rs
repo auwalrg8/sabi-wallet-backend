@@ -24,6 +24,14 @@ pub async fn create_wallet(
         return Err(AppError::BadRequest("Phone must be +234xxxxxxxxxx".into()));
     }
 
+    // 3. Validate backup_type
+    let backup_type = payload.backup_type.to_lowercase();
+    if !matches!(backup_type.as_str(), "none" | "social" | "seed") {
+        return Err(AppError::BadRequest("backup_type must be 'none', 'social', or 'seed'".into()));
+    }
+
+    let backup_status = if backup_type == "none" { "skipped" } else { "pending" };
+
     // 3. Create node on Breez Spark (nodeless)
     let node = state.breez.create_node().await
         .map_err(|e| AppError::Internal(format!("Breez create_node failed: {e}")))?;
@@ -34,8 +42,8 @@ pub async fn create_wallet(
     // 5. Save to DB
     sqlx::query(
         r#"
-        INSERT INTO wallets (wallet_id, phone, device_id, node_pubkey, invite_code)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO wallets (wallet_id, phone, device_id, node_pubkey, invite_code, backup_type, backup_status)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         "#,
     )
     .bind(&wallet_id)
@@ -43,6 +51,8 @@ pub async fn create_wallet(
     .bind(&payload.device_id)
     .bind(&node.node_pubkey)
     .bind(&node.invite_code)
+    .bind(&backup_type)
+    .bind(backup_status)
     .execute(&state.db)
     .await
     .map_err(|e| AppError::Internal(e.to_string()))?;

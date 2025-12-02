@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS wallets (
     device_id TEXT NOT NULL UNIQUE,             -- One device = one wallet forever
     node_pubkey TEXT NOT NULL,                  -- Breez Spark node pubkey
     invite_code TEXT NOT NULL,                  -- SABI-XXXXX code for instant inbound
+    backup_type TEXT NOT NULL DEFAULT 'none',   -- none | social | seed
+    backup_status TEXT NOT NULL DEFAULT 'skipped', -- skipped | pending | completed
     status TEXT NOT NULL DEFAULT 'active',      -- active | suspended | closed
     created_at DATETIME NOT NULL DEFAULT (datetime('now')),
     updated_at DATETIME NOT NULL DEFAULT (datetime('now'))
