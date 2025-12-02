@@ -1,4 +1,3 @@
-version: '3.9'
 services:
   backend:
     build: .
@@ -6,7 +5,7 @@ services:
       - "3000:3000"
     environment:
       - BREEZ_API_KEY=${BREEZ_API_KEY}
-      - DATABASE_URL=file:/data/sabi.db
+      - DATABASE_URL=sqlite:/data/sabi.db?mode=rwc
     volumes:
       - ./data:/data
     restart: unless-stopped

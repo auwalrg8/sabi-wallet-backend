@@ -1,1 +1,1 @@
-// Data models - to be implemented
+pub mod wallet;

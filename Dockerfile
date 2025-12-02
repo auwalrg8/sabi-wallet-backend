@@ -1,7 +1,7 @@
-FROM rust:1.82 as builder
+FROM rust:1.84 as builder
 WORKDIR /app
 COPY . .
-RUN cargo build --release
+RUN cargo build --release --locked
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
