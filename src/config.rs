@@ -20,7 +20,7 @@ impl Config {
         config::Config::builder()
             .add_source(config::Environment::default())
             .set_default("breez_env", "production")?
-            .set_default("database_url", "file:./sabi.db")?
+            .set_default("database_url", "sqlite:./data/sabi.db?mode=rwc")?
             .build()?
             .try_deserialize::<Self>()
     }
