@@ -31,6 +31,7 @@ futures = "0.3.30"
 redis = { version = "0.27.2", features = ["tokio-comp", "connection-manager"], optional = true }
 home = "=0.5.11"
 base64ct = "=1.6.0"
+bip39 = { version = "2.0", features = ["rand"] }
 
 [dev-dependencies]
 tokio = { version = "1.40", features = ["macros", "rt-multi-thread"] }

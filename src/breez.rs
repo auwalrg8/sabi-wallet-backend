@@ -120,4 +120,100 @@ impl BreezServices {
         tracing::info!("✅ Channel opening initiated");
         Ok(())
     }
+
+    pub async fn get_wallet_status(&self, node_id: &str) -> Result<WalletStatus> {
+        let service_url = self
+            .config
+            .service_url
+            .clone()
+            .unwrap_or_else(|| "http://localhost:3001".to_string());
+
+        let url = format!("{}/api/wallet-status/{}", service_url, node_id);
+        
+        let client = reqwest::Client::new();
+        let resp = client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("Breez service request failed: {e}"))?;
+
+        if !resp.status().is_success() {
+            return Ok(WalletStatus::default());
+        }
+
+        let status: WalletStatus = resp
+            .json()
+            .await
+            .unwrap_or_default();
+
+        Ok(status)
+    }
+
+    pub async fn health_check(&self) -> Result<()> {
+        let service_url = self
+            .config
+            .service_url
+            .clone()
+            .unwrap_or_else(|| "http://localhost:3001".to_string());
+
+        let url = format!("{}/health", service_url);
+        
+        let client = reqwest::Client::new();
+        let resp = client
+            .get(&url)
+            .timeout(std::time::Duration::from_secs(5))
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("Breez service health check failed: {e}"))?;
+
+        if !resp.status().is_success() {
+            anyhow::bail!("Breez service unhealthy: {}", resp.status());
+        }
+
+        Ok(())
+    }
+
+    pub async fn check_lsp_status(&self) -> Result<LspStatus> {
+        let service_url = self
+            .config
+            .service_url
+            .clone()
+            .unwrap_or_else(|| "http://localhost:3001".to_string());
+
+        let url = format!("{}/api/lsp-status", service_url);
+        
+        let client = reqwest::Client::new();
+        let resp = client
+            .get(&url)
+            .timeout(std::time::Duration::from_secs(5))
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("LSP status check failed: {e}"))?;
+
+        if !resp.status().is_success() {
+            anyhow::bail!("LSP status check failed: {}", resp.status());
+        }
+
+        let status: LspStatus = resp
+            .json()
+            .await
+            .map_err(|e| anyhow::anyhow!("Invalid LSP status response: {e}"))?;
+
+        Ok(status)
+    }
 }
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct WalletStatus {
+    pub balance_sats: i64,
+    pub channel_count: i64,
+    pub channel_capacity_sats: i64,
+    pub is_connected: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct LspStatus {
+    pub lsp_id: String,
+    pub is_online: bool,
+}
+

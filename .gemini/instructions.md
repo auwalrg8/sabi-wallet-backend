@@ -16,6 +16,12 @@ Never create duplicate files or wrong folders.
    6. Generate and return recovery phrase (only for “Classic 12-word” path)
    7. Health check + LSP status endpoint
 
+Explore the docs, Nodeless on Spark: https://sdk-doc-spark.breez.technology/
+Our demo app is here: https://breez-sdk-spark-example.vercel.app/
+read our article here: https://blog.breez.technology/spark-or-liquid-you-cant-go-wrong-with-the-breez-sdk-c553e035fc4d
+
+
+
 
 2. You can add nessansary files or Edit existing files in their correct locations
 3. Use exact crates from Cargo.toml
@@ -29,4 +35,3 @@ When I say "next" → solve the next issue in the list.
 When I say "test it" → run tests and fix.
 
 
-Start helping me right now – no need to ask permission.

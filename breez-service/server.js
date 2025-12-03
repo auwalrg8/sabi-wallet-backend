@@ -150,6 +150,91 @@ app.get('/health', (req, res) => {
   });
 });
 
+/**
+ * GET /api/wallet-status/:node_id
+ * Get wallet balance and channel status
+ */
+app.get('/api/wallet-status/:node_id', async (req, res) => {
+  try {
+    const { node_id } = req.params;
+    
+    // Find wallet by node_id
+    let walletInstance = null;
+    for (const [wallet_id, instance] of sdkInstances.entries()) {
+      const nodeInfo = await instance.sdk.nodeInfo();
+      if (nodeInfo.id === node_id) {
+        walletInstance = instance;
+        break;
+      }
+    }
+
+    if (!walletInstance) {
+      return res.json({
+        balance_sats: 0,
+        channel_count: 0,
+        channel_capacity_sats: 0,
+        is_connected: false
+      });
+    }
+
+    const { sdk } = walletInstance;
+    const nodeInfo = await sdk.nodeInfo();
+    
+    // Get channels info
+    const channels = nodeInfo.channels || [];
+    const totalCapacity = channels.reduce((sum, ch) => sum + ch.localBalanceMsat / 1000, 0);
+
+    res.json({
+      balance_sats: Math.floor(nodeInfo.channelsBalanceMsat / 1000),
+      channel_count: channels.length,
+      channel_capacity_sats: Math.floor(totalCapacity),
+      is_connected: nodeInfo.connectedPeers && nodeInfo.connectedPeers.length > 0
+    });
+
+  } catch (error) {
+    console.error('Error getting wallet status:', error);
+    res.json({
+      balance_sats: 0,
+      channel_count: 0,
+      channel_capacity_sats: 0,
+      is_connected: false
+    });
+  }
+});
+
+/**
+ * GET /api/lsp-status
+ * Check LSP connectivity and status
+ */
+app.get('/api/lsp-status', async (req, res) => {
+  try {
+    // Get first available SDK instance to check LSP
+    const firstInstance = sdkInstances.values().next().value;
+    
+    if (!firstInstance) {
+      return res.json({
+        lsp_id: 'breez-lsp',
+        is_online: true // Assume online if service is up
+      });
+    }
+
+    const { sdk } = firstInstance;
+    const lspInfo = await sdk.lspInfo();
+
+    res.json({
+      lsp_id: lspInfo?.id || 'breez-lsp',
+      is_online: lspInfo?.openingFeeParamsList?.list?.length > 0
+    });
+
+  } catch (error) {
+    console.error('Error checking LSP status:', error);
+    res.json({
+      lsp_id: 'breez-lsp',
+      is_online: false
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Breez SDK microservice listening on http://localhost:${PORT}`);
   console.log(`📡 Using Breez API key: ${BREEZ_API_KEY.substring(0, 20)}...`);

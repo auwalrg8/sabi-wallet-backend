@@ -12,6 +12,9 @@ pub struct Wallet {
     pub status: String,
     pub first_channel_opened: i64, // 0 or 1
     pub first_channel_sats: i64,
+    pub device_bound_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub recovery_phrase_shown: i64, // 0 or 1
+    pub last_seen_at: Option<chrono::DateTime<chrono::Utc>>,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -32,4 +35,42 @@ pub struct CreateWalletResponse {
     pub invite_code: String,
     pub node_id: String,
     pub initial_channel_opened: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recovery_phrase: Option<String>, // Only present if backup_type == "seed"
+}
+
+#[derive(Serialize)]
+pub struct WalletStatusResponse {
+    pub wallet_id: String,
+    pub status: String,
+    pub balance_sats: i64,
+    pub channel_status: ChannelStatus,
+    pub device_id: String,
+    pub last_seen: Option<String>,
+    pub backup_status: String,
+}
+
+#[derive(Serialize)]
+pub struct ChannelStatus {
+    pub has_channel: bool,
+    pub channel_capacity_sats: i64,
+    pub is_connected: bool,
+}
+
+#[derive(Serialize)]
+pub struct HealthCheckResponse {
+    pub status: String,
+    pub timestamp: String,
+    pub database: ServiceHealth,
+    pub breez_service: ServiceHealth,
+    pub lsp: ServiceHealth,
+}
+
+#[derive(Serialize)]
+pub struct ServiceHealth {
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub latency_ms: Option<u64>,
 }
