@@ -19,6 +19,8 @@ impl AppState {
             NodelessConfig {
                 spark_url: None, // default production
                 invite_code_prefix: Some("SABI".to_string()),
+                first_channel_sats_default: config.first_channel_sats_default,
+                service_url: config.breez_service_url.clone(),
             },
         ).await?;
 

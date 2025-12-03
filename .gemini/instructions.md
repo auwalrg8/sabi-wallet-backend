@@ -15,13 +15,7 @@ Never create duplicate files or wrong folders.
    5. Webhook receiver for Breez payment events → push to frontend
    6. Generate and return recovery phrase (only for “Classic 12-word” path)
    7. Health check + LSP status endpoint
-   8. Add support for backup_type=none in /wallet/create, Backend must accept backup_type=none and still create Breez node + open first channel.
-Acceptance Criteria
 
-Allow backup_type: "none" | "social" | "seed"
-Still create Lightning node and open first channel
-Store backup_status = skipped in DB
-Return same response as normal (invite_code, etc.)
 
 2. You can add nessansary files or Edit existing files in their correct locations
 3. Use exact crates from Cargo.toml

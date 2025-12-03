@@ -3,8 +3,8 @@ CREATE TABLE IF NOT EXISTS wallets (
     wallet_id TEXT PRIMARY KEY NOT NULL,        -- UUID v7 (our internal ID)
     phone TEXT NOT NULL,                        -- +234xxxxxxxxxx
     device_id TEXT NOT NULL UNIQUE,             -- One device = one wallet forever
-    node_pubkey TEXT NOT NULL,                  -- Breez Spark node pubkey
-    invite_code TEXT NOT NULL,                  -- SABI-XXXXX code for instant inbound
+    breez_node_id TEXT NOT NULL,                -- Breez Spark node id (pubkey)
+    invite_code TEXT NOT NULL,                  -- Invite/mnemonic or code from Breez
     backup_type TEXT NOT NULL DEFAULT 'none',   -- none | social | seed
     backup_status TEXT NOT NULL DEFAULT 'skipped', -- skipped | pending | completed
     status TEXT NOT NULL DEFAULT 'active',      -- active | suspended | closed

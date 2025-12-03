@@ -1,35 +1,123 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct BreezServices {
-	pub api_key: String,
-	pub config: NodelessConfig,
+    pub api_key: String,
+    pub config: NodelessConfig,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct NodelessConfig {
-	pub spark_url: Option<String>,
-	pub invite_code_prefix: Option<String>,
+    pub spark_url: Option<String>,
+    pub invite_code_prefix: Option<String>,
+    pub first_channel_sats_default: Option<i64>,
+    pub service_url: Option<String>, // Breez microservice URL
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NodeInfo {
-	pub node_pubkey: String,
-	pub invite_code: String,
+    pub node_pubkey: String,
+    pub invite_code: String,
 }
 
 impl BreezServices {
-	pub async fn init_nodeless(api_key: String, config: NodelessConfig) -> Result<Self> {
-		Ok(Self { api_key, config })
-	}
+    pub async fn init_nodeless(api_key: String, config: NodelessConfig) -> Result<Self> {
+        Ok(Self { api_key, config })
+    }
 
-	pub async fn create_node(&self) -> Result<NodeInfo> {
-		// Placeholder implementation until real SDK is wired
-		let node_pubkey = format!("npub1{}", uuid::Uuid::now_v7().simple());
-		let invite_suffix = &uuid::Uuid::now_v7().to_string()[..8];
-		let prefix = self.config.invite_code_prefix.clone().unwrap_or_else(|| "SABI".to_string());
-		let invite_code = format!("{}-{}", prefix, invite_suffix.to_uppercase());
-		Ok(NodeInfo { node_pubkey, invite_code })
-	}
+    pub async fn create_node(&self) -> Result<NodeInfo> {
+        // Call Breez microservice to create node
+        let service_url = self
+            .config
+            .service_url
+            .clone()
+            .unwrap_or_else(|| "http://localhost:3001".to_string());
+
+        #[derive(Serialize)]
+        struct CreateNodeReq {
+            wallet_id: String,
+        }
+
+        #[derive(Deserialize)]
+        struct CreateNodeResp {
+            node_id: String,
+            invite_code: String,
+        }
+
+        let wallet_id = uuid::Uuid::now_v7().to_string();
+        let url = format!("{}/api/create-node", service_url);
+        
+        tracing::info!(url, wallet_id, "Calling Breez microservice to create node");
+
+        let client = reqwest::Client::new();
+        let resp = client
+            .post(&url)
+            .json(&CreateNodeReq { wallet_id })
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("Breez service request failed: {e}"))?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            anyhow::bail!("Breez service error: {} - {}", status, body);
+        }
+
+        let parsed: CreateNodeResp = resp
+            .json()
+            .await
+            .map_err(|e| anyhow::anyhow!("Invalid Breez service response: {e}"))?;
+
+        tracing::info!(node_id = %parsed.node_id, "✅ Breez node created");
+
+        Ok(NodeInfo {
+            node_pubkey: parsed.node_id,
+            invite_code: parsed.invite_code,
+        })
+    }
+
+    pub async fn open_first_channel(&self, wallet_id: &str, amount_sats: i64) -> Result<()> {
+        // Validate amount within 100k–300k sats
+        if amount_sats < 100_000 || amount_sats > 300_000 {
+            anyhow::bail!("channel amount must be between 100k and 300k sats");
+        }
+
+        // Call Breez microservice to open channel
+        let service_url = self
+            .config
+            .service_url
+            .clone()
+            .unwrap_or_else(|| "http://localhost:3001".to_string());
+
+        #[derive(Serialize)]
+        struct OpenChannelReq {
+            wallet_id: String,
+            amount_sats: i64,
+        }
+
+        let url = format!("{}/api/open-channel", service_url);
+        
+        tracing::info!(url, wallet_id, amount_sats, "Calling Breez microservice to open channel");
+
+        let client = reqwest::Client::new();
+        let resp = client
+            .post(&url)
+            .json(&OpenChannelReq {
+                wallet_id: wallet_id.to_string(),
+                amount_sats,
+            })
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("Breez service request failed: {e}"))?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            anyhow::bail!("Breez service error: {} - {}", status, body);
+        }
+
+        tracing::info!("✅ Channel opening initiated");
+        Ok(())
+    }
 }

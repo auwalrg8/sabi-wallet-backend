@@ -5,11 +5,13 @@ pub struct Wallet {
     pub wallet_id: String,
     pub phone: String,
     pub device_id: String,
-    pub node_pubkey: String,
+    pub breez_node_id: String,
     pub invite_code: String,
     pub backup_type: String,
     pub backup_status: String,
     pub status: String,
+    pub first_channel_opened: i64, // 0 or 1
+    pub first_channel_sats: i64,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -27,7 +29,7 @@ fn default_backup_type() -> String {
 
 #[derive(Serialize)]
 pub struct CreateWalletResponse {
-    pub wallet_id: String,
     pub invite_code: String,
     pub node_id: String,
+    pub initial_channel_opened: bool,
 }

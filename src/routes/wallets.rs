@@ -39,11 +39,27 @@ pub async fn create_wallet(
     // 4. Generate our internal wallet_id (UUID v7)
     let wallet_id = Uuid::now_v7().to_string();
 
-    // 5. Save to DB
+    // 5. Decide first channel liquidity (100k–300k sats)
+    let default_sats = state
+        .config
+        .first_channel_sats_default
+        .unwrap_or(200_000);
+    let first_channel_sats = default_sats.clamp(100_000, 300_000);
+
+    // 6. Attempt to open first channel via Breez
+    let mut first_channel_opened: i64 = 0;
+    if let Err(e) = state.breez.open_first_channel(&wallet_id, first_channel_sats).await {
+        // Do not fail wallet creation; just record not opened yet
+        tracing::warn!(error = %e, "Failed to open first channel");
+    } else {
+        first_channel_opened = 1;
+    }
+
+    // 7. Save to DB
     sqlx::query(
         r#"
-        INSERT INTO wallets (wallet_id, phone, device_id, node_pubkey, invite_code, backup_type, backup_status)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO wallets (wallet_id, phone, device_id, breez_node_id, invite_code, backup_type, backup_status, first_channel_opened, first_channel_sats)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         "#,
     )
     .bind(&wallet_id)
@@ -53,13 +69,15 @@ pub async fn create_wallet(
     .bind(&node.invite_code)
     .bind(&backup_type)
     .bind(backup_status)
+    .bind(first_channel_opened)
+    .bind(first_channel_sats)
     .execute(&state.db)
     .await
     .map_err(|e| AppError::Internal(e.to_string()))?;
 
     Ok(Json(CreateWalletResponse {
-        wallet_id,
         invite_code: node.invite_code,
         node_id: node.node_pubkey,
+        initial_channel_opened: first_channel_opened == 1,
     }))
 }
