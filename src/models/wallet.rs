@@ -35,26 +35,6 @@ pub struct CreateWalletResponse {
     pub invite_code: String,
     pub node_id: String,
     pub initial_channel_opened: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub recovery_phrase: Option<String>, // Only present if backup_type == "seed"
-}
-
-#[derive(Serialize)]
-pub struct WalletStatusResponse {
-    pub wallet_id: String,
-    pub status: String,
-    pub balance_sats: i64,
-    pub channel_status: ChannelStatus,
-    pub device_id: String,
-    pub last_seen: Option<String>,
-    pub backup_status: String,
-}
-
-#[derive(Serialize)]
-pub struct ChannelStatus {
-    pub has_channel: bool,
-    pub channel_capacity_sats: i64,
-    pub is_connected: bool,
 }
 
 #[derive(Serialize)]
