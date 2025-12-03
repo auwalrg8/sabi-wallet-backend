@@ -12,11 +12,11 @@ pub async fn health_check(
     let db_health = match sqlx::query("SELECT 1").fetch_one(&state.db).await {
         Ok(_) => ServiceHealth {
             status: "healthy".to_string(),
-            message: None,
+            message: Some("Database connected".to_string()),
             latency_ms: Some(db_start.elapsed().as_millis() as u64),
         },
         Err(e) => {
-            overall_status = "degraded";
+            overall_status = "unhealthy";
             ServiceHealth {
                 status: "unhealthy".to_string(),
                 message: Some(e.to_string()),
@@ -25,40 +25,19 @@ pub async fn health_check(
         }
     };
 
-    // 2. Check Breez service connectivity
-    let breez_start = Instant::now();
-    let breez_health = match state.breez.health_check().await {
-        Ok(_) => ServiceHealth {
-            status: "healthy".to_string(),
-            message: None,
-            latency_ms: Some(breez_start.elapsed().as_millis() as u64),
-        },
-        Err(e) => {
-            overall_status = "degraded";
-            ServiceHealth {
-                status: "unhealthy".to_string(),
-                message: Some(e.to_string()),
-                latency_ms: None,
-            }
-        }
+    // 2. Breez SDK Nodeless (2025) - No backend service needed!
+    // All Lightning operations happen on the device via Breez SDK
+    // No LSP check needed from backend - client SDK handles this
+    let breez_health = ServiceHealth {
+        status: "n/a".to_string(),
+        message: Some("Breez SDK runs on device - no backend service".to_string()),
+        latency_ms: None,
     };
 
-    // 3. Check LSP connectivity (via Breez service)
-    let lsp_start = Instant::now();
-    let lsp_health = match state.breez.check_lsp_status().await {
-        Ok(status) => ServiceHealth {
-            status: if status.is_online { "healthy" } else { "degraded" }.to_string(),
-            message: Some(format!("LSP: {}", status.lsp_id)),
-            latency_ms: Some(lsp_start.elapsed().as_millis() as u64),
-        },
-        Err(e) => {
-            overall_status = "degraded";
-            ServiceHealth {
-                status: "unhealthy".to_string(),
-                message: Some(e.to_string()),
-                latency_ms: None,
-            }
-        }
+    let lsp_health = ServiceHealth {
+        status: "n/a".to_string(),
+        message: Some("LSP checked by device SDK - not backend".to_string()),
+        latency_ms: None,
     };
 
     Ok(Json(HealthCheckResponse {

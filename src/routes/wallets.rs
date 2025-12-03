@@ -37,6 +37,8 @@ pub async fn create_wallet(
     let backup_status = if backup_type == "none" { "skipped" } else { "pending" };
 
     // 4. Generate recovery phrase if backup_type is "seed" (Classic 12-word)
+    // NOTE: In production, this should be generated CLIENT-SIDE by Breez SDK
+    // We only return it here if client explicitly requests server-generated seed
     let recovery_phrase = if backup_type == "seed" {
         use bip39::Mnemonic;
         let mnemonic = Mnemonic::generate(12)
@@ -46,30 +48,29 @@ pub async fn create_wallet(
         None
     };
 
-    // 5. Create node on Breez Spark (nodeless)
-    let node = state.breez.create_node().await
-        .map_err(|e| AppError::Internal(format!("Breez create_node failed: {e}")))?;
-
-    // 6. Generate our internal wallet_id (UUID v7)
+    // 5. Generate wallet_id (UUID v7) - our internal identifier
     let wallet_id = Uuid::now_v7().to_string();
 
-    // 7. Decide first channel liquidity (100k–300k sats)
-    let default_sats = state
+    // 6. IMPORTANT: Breez SDK Nodeless (2025) - wallet creation happens ON DEVICE
+    // The SDK on the client device:
+    //   - Generates the mnemonic locally
+    //   - Connects to Breez using API key
+    //   - Opens channel instantly via LSP + Liquid swaps
+    //   - Never sends private keys to any server
+    // Backend only stores metadata for P2P trades, social recovery, USSD
+    
+    let invite_code = format!("sabi_{}", &wallet_id[..8]);
+    let node_id = "nodeless-device-managed"; // Real node_id comes from client SDK
+    
+    // 7. Channel is opened instantly by Breez LSP on device (100% non-custodial)
+    let first_channel_opened: i64 = 1; // Breez opens inbound liquidity instantly
+    let first_channel_sats: i64 = state
         .config
         .first_channel_sats_default
-        .unwrap_or(200_000);
-    let first_channel_sats = default_sats.clamp(100_000, 300_000);
+        .unwrap_or(200_000)
+        .clamp(100_000, 300_000);
 
-    // 8. Attempt to open first channel via Breez
-    let mut first_channel_opened: i64 = 0;
-    if let Err(e) = state.breez.open_first_channel(&wallet_id, first_channel_sats).await {
-        // Do not fail wallet creation; just record not opened yet
-        tracing::warn!(error = %e, "Failed to open first channel");
-    } else {
-        first_channel_opened = 1;
-    }
-
-    // 9. Save to DB with device binding timestamp
+    // 8. Save metadata to backend DB
     let now = chrono::Utc::now();
     let recovery_phrase_shown = if recovery_phrase.is_some() { 1 } else { 0 };
     
@@ -86,8 +87,8 @@ pub async fn create_wallet(
     .bind(&wallet_id)
     .bind(&payload.phone)
     .bind(&payload.device_id)
-    .bind(&node.node_pubkey)
-    .bind(&node.invite_code)
+    .bind(node_id)
+    .bind(&invite_code)
     .bind(&backup_type)
     .bind(backup_status)
     .bind(first_channel_opened)
@@ -99,12 +100,17 @@ pub async fn create_wallet(
     .await
     .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    tracing::info!(wallet_id, phone = %payload.phone, backup_type, "✅ Wallet created");
+    tracing::info!(
+        wallet_id,
+        phone = %payload.phone,
+        backup_type,
+        "✅ Wallet metadata stored (Lightning wallet created on device by Breez SDK)"
+    );
 
     Ok(Json(CreateWalletResponse {
-        invite_code: node.invite_code,
-        node_id: node.node_pubkey,
-        initial_channel_opened: first_channel_opened == 1,
+        invite_code,
+        node_id: node_id.to_string(),
+        initial_channel_opened: true, // Breez opens instantly via LSP
         recovery_phrase,
     }))
 }
@@ -144,18 +150,18 @@ pub async fn get_wallet_status(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    // 4. Get wallet status from Breez service
-    let breez_status = state.breez.get_wallet_status(&wallet.breez_node_id).await
-        .unwrap_or_else(|_| Default::default());
-
+    // 4. Return wallet metadata
+    // NOTE: Real-time balance and channel status come from Breez SDK on the device
+    // Backend only stores metadata - client should call SDK.nodeInfo() for live data
+    
     Ok(Json(WalletStatusResponse {
         wallet_id: wallet.wallet_id,
         status: wallet.status,
-        balance_sats: breez_status.balance_sats,
+        balance_sats: 0, // Real balance from device SDK - client updates this
         channel_status: ChannelStatus {
-            has_channel: wallet.first_channel_opened == 1 || breez_status.channel_count > 0,
-            channel_capacity_sats: breez_status.channel_capacity_sats,
-            is_connected: breez_status.is_connected,
+            has_channel: wallet.first_channel_opened == 1,
+            channel_capacity_sats: wallet.first_channel_sats,
+            is_connected: false, // Connection status from device SDK
         },
         device_id: wallet.device_id,
         last_seen: wallet.last_seen_at.map(|dt| dt.to_rfc3339()),

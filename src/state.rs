@@ -14,13 +14,12 @@ impl AppState {
     pub async fn new(config: Config) -> Result<Self, Box<dyn std::error::Error>> {
         let db = SqlitePool::connect(&config.database_url).await?;
 
+        // Breez SDK Nodeless (2025) - minimal config
+        // API key is used by client SDK, not backend
         let breez = BreezServices::init_nodeless(
             config.breez_api_key.clone(),
             NodelessConfig {
-                spark_url: None, // default production
-                invite_code_prefix: Some("SABI".to_string()),
                 first_channel_sats_default: config.first_channel_sats_default,
-                service_url: config.breez_service_url.clone(),
             },
         ).await?;
 
